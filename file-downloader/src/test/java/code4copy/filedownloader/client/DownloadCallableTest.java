@@ -5,6 +5,7 @@ import com.code4copy.filedownloader.client.DownloadCallable;
 import com.code4copy.filedownloader.client.DownloadedChunkInfo;
 import com.code4copy.filedownloader.client.HttpDownloadClient;
 import com.code4copy.filedownloader.client.Range;
+import org.apache.hc.client5.http.ConnectTimeoutException;
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpHead;
@@ -62,6 +63,36 @@ public class DownloadCallableTest {
         File f = new File(downloadedChunkInfo.getChunkPath());
         assertTrue(f.exists());
         assertTrue(Files.readString(f.toPath()).equals(TEXT));
+    }
+
+    @Test
+    public void test_call_404() throws Exception {
+
+        when(httpResponse.getCode()).thenReturn(HttpStatus.SC_NOT_FOUND);
+        when(httpResponse.getEntity()).thenReturn(httpEntity);
+        when(httpEntity.getContent()).thenReturn(inputStream);
+        when(httpEntity.getContentLength()).thenReturn(4l);
+        when(httpClient.execute(Mockito.any(HttpGet.class))).thenReturn(httpResponse);
+
+        DownloadCallable downloadCallable = new DownloadCallable(httpClient, null, URI.create( FILE_URL), 0, new Range(0,3));
+        DownloadedChunkInfo downloadedChunkInfo = downloadCallable.call();
+        assertTrue(downloadedChunkInfo.isFailed());
+        assertTrue(downloadedChunkInfo.getHttpStatus() == HttpStatus.SC_NOT_FOUND );
+    }
+
+    @Test
+    public void test_call_exception() throws Exception {
+
+        when(httpResponse.getCode()).thenReturn(HttpStatus.SC_NOT_FOUND);
+        when(httpResponse.getEntity()).thenReturn(httpEntity);
+        when(httpEntity.getContent()).thenReturn(inputStream);
+        when(httpEntity.getContentLength()).thenReturn(4l);
+        when(httpClient.execute(Mockito.any(HttpGet.class))).thenThrow(new ConnectTimeoutException("Timeout"));
+
+        DownloadCallable downloadCallable = new DownloadCallable(httpClient, null, URI.create( FILE_URL), 0, new Range(0,3));
+        DownloadedChunkInfo downloadedChunkInfo = downloadCallable.call();
+        assertTrue(downloadedChunkInfo.isFailed());
+        assertTrue(downloadedChunkInfo.getErr().equals("Timeout") );
     }
 
 }
