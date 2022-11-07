@@ -91,7 +91,7 @@ public class HttpDownloadClient implements DownloadClient {
         for (int i = 0; i < chunks-1; ++i){
             rangeList.add(new Range(i* chunkLength, (i+1)* chunkLength -1));
         }
-        rangeList.add(new Range((chunks-1)* chunkLength, (chunks)* chunkLength + contentLength % chunks));
+        rangeList.add(new Range((chunks-1)* chunkLength, (chunks)* chunkLength + contentLength % chunks -1));
         return rangeList;
     }
 
