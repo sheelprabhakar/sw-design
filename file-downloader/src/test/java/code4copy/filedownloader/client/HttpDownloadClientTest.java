@@ -1,4 +1,4 @@
-package code4copy.filedownloader;
+package code4copy.filedownloader.client;
 
 import com.code4copy.filedownloader.DownloadRequest;
 import com.code4copy.filedownloader.client.HttpDownloadClient;
@@ -46,9 +46,10 @@ public class HttpDownloadClientTest {
         when(httpResponse.getHeader(HttpHeaders.CONTENT_LENGTH)).thenReturn(contentHeader);
         when(httpClient.execute(Mockito.any(HttpHead.class))).thenReturn(httpResponse);
 
-        HttpDownloadClient downloadClient = new HttpDownloadClient(httpClient);
         DownloadRequest request = DownloadRequest.builder().url(FILE_URL).build();
-        assertTrue(downloadClient.checkRangeSupported(request).isSupported());
+        HttpDownloadClient downloadClient = new HttpDownloadClient(request, httpClient);
+
+        assertTrue(downloadClient.checkRangeSupported().isSupported());
     }
 
     @Test
@@ -60,9 +61,10 @@ public class HttpDownloadClientTest {
         when(httpResponse.getHeader(HttpHeaders.CONTENT_LENGTH)).thenReturn(contentHeader);
         when(httpClient.execute(Mockito.any(HttpHead.class))).thenReturn(httpResponse);
 
-        HttpDownloadClient downloadClient = new HttpDownloadClient(httpClient);
         DownloadRequest request = DownloadRequest.builder().url(FILE_URL).build();
-        assertFalse(downloadClient.checkRangeSupported(request).isSupported());
+        HttpDownloadClient downloadClient = new HttpDownloadClient(request, httpClient);
+
+        assertFalse(downloadClient.checkRangeSupported().isSupported());
     }
 
     @Test

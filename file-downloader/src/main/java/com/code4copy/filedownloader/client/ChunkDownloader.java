@@ -15,7 +15,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 
-public class DownloadCallable implements Callable<DownloadedChunkInfo> {
+public class ChunkDownloader implements Callable<DownloadedChunkInfo> {
     private final HttpClient httpClient;
     private final String authHeader;
     private final URI uri;
@@ -23,8 +23,8 @@ public class DownloadCallable implements Callable<DownloadedChunkInfo> {
     private final Range range;
     private int chunkIndex;
 
-    public DownloadCallable(final HttpClient httpClient, final String authHeader,
-                            final URI uri, int chunkIndex, final Range range) {
+    public ChunkDownloader(final HttpClient httpClient, final String authHeader,
+                           final URI uri, int chunkIndex, final Range range) {
         this.httpClient = httpClient;
         this.authHeader = authHeader;
         this.uri = uri;
@@ -39,7 +39,7 @@ public class DownloadCallable implements Callable<DownloadedChunkInfo> {
         if(!Utils.isEmpty(authHeader)){
             getRequest.setHeader(HttpHeaders.AUTHORIZATION, authHeader);
         }
-
+        getRequest.setHeader(HttpHeaders.RANGE, String.format("bytes=%d-%d", this.range.getFrom(), this.range.getTo()));
         CloseableHttpResponse response = null;
         try {
             response = (CloseableHttpResponse)this.httpClient.execute(getRequest);
