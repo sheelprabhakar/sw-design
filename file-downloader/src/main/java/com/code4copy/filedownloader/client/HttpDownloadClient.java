@@ -1,18 +1,25 @@
 package com.code4copy.filedownloader.client;
 
+import com.code4copy.filedownloader.DownloadConfig;
 import com.code4copy.filedownloader.DownloadRequest;
 import com.code4copy.filedownloader.RangeInfo;
+import com.code4copy.filedownloader.Utils;
 import com.code4copy.filedownloader.api.DownloadClient;
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.apache.hc.client5.http.classic.methods.HttpHead;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.core5.http.*;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 
 public class HttpDownloadClient implements DownloadClient {
@@ -32,10 +39,47 @@ public class HttpDownloadClient implements DownloadClient {
         return null;
     }
 
-    public void process(DownloadRequest request) throws Exception {
+    public File process(DownloadRequest request) throws Exception {
         RangeInfo rangeInfo = this.checkRangeSupported(request);
+        List<Callable<DownloadedChunkInfo>> callableTasks = new ArrayList<>();
         List<Range> rangeList = makeRangeList(request.getChunks(), rangeInfo.getContentLength());
+        String authHeader = getAuthHeader(request);
+        int index =0;
+        for(Range r : rangeList){
+            DownloadCallable callable = new DownloadCallable(this.httpClient, authHeader, URI.create(request.getUrl()),
+                    index++,r);
+            callableTasks.add(callable);
+        }
+
+        List<Future<DownloadedChunkInfo>> futures = executor.invokeAll(callableTasks);
+        List<File> files = new ArrayList<>();
+        // Sequence is same as submitted
+       for(Future<DownloadedChunkInfo> future: futures){
+           DownloadedChunkInfo downloadedChunkInfo = future.get();
+           if(downloadedChunkInfo.isFailed()){
+               throw new Exception(downloadedChunkInfo.getErr());
+           }
+           files.add(new File(downloadedChunkInfo.getChunkPath()));
+       }
+       // Merge downloaded files
+        // Make file path
+        String folder = request.getDownloadLocation();
+       if(Utils.isEmpty(folder)){
+           folder = DownloadConfig.defaultConfig().getDownloadLocation();
+       }
+       // Make sure folder exists
+        File f = new File(folder);
+       if(!f.exists()) {
+           f.mkdirs();
+       }
+       String [] parts = request.getUrl().split("/");
+       String fileName = parts[parts.length-1];
+       Path path = Path.of(folder, fileName);
+       // To Do new file name with number for duplicate name
+       Utils.concatFiles(path.toFile(), files);
+       return path.toFile();
     }
+
 
     public static List<Range> makeRangeList(int chunks, long contentLength) {
         long chunkLength = contentLength/chunks;

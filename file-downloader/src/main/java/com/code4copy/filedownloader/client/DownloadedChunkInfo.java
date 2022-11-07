@@ -11,4 +11,7 @@ public class DownloadedChunkInfo {
     private String chunkPath;
     private long contentLength;
     private int chunkIndex;
+    private boolean failed;
+    private String err;
+    private int httpStatus;
 }

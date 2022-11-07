@@ -1,5 +1,6 @@
 package com.code4copy.filedownloader.client;
 
+import com.code4copy.filedownloader.Utils;
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
@@ -33,15 +34,15 @@ public class DownloadCallable implements Callable<DownloadedChunkInfo> {
 
     @Override
     public DownloadedChunkInfo call() throws Exception {
-        HttpGet headRequest = new HttpGet(this.uri.toURL().toString());
+        HttpGet getRequest = new HttpGet(this.uri.toURL().toString());
         DownloadedChunkInfo downloadedChunkInfo = DownloadedChunkInfo.builder().build();
-        if(authHeader != null && authHeader.trim().length() > 0){
-            headRequest.setHeader(HttpHeaders.AUTHORIZATION, authHeader);
+        if(!Utils.isEmpty(authHeader)){
+            getRequest.setHeader(HttpHeaders.AUTHORIZATION, authHeader);
         }
 
         CloseableHttpResponse response = null;
         try {
-            response = (CloseableHttpResponse)this.httpClient.execute(headRequest);
+            response = (CloseableHttpResponse)this.httpClient.execute(getRequest);
             if(response.getCode() == HttpStatus.SC_PARTIAL_CONTENT)
             {
                 downloadedChunkInfo.setChunkIndex(this.chunkIndex);
@@ -56,12 +57,16 @@ public class DownloadCallable implements Callable<DownloadedChunkInfo> {
                 inputStream.close();
 
                 downloadedChunkInfo.setChunkPath(tempFile.toPath().toAbsolutePath().toString());
+                downloadedChunkInfo.setFailed(false);
 
             }else{
-                throw new RuntimeException("File download Failed");
+                downloadedChunkInfo.setFailed(true);
+                downloadedChunkInfo.setHttpStatus(response.getCode());
+                downloadedChunkInfo.setErr("Download failed due to HTTP error.");
             }
         } catch (IOException e) {
-            throw new Exception("Error in executing HEAD request", e);
+            downloadedChunkInfo.setFailed(true);
+            downloadedChunkInfo.setErr(e.getLocalizedMessage());
         }finally {
             if(response != null){
                 response.close();
