@@ -25,28 +25,32 @@ import java.util.concurrent.Future;
 public class HttpDownloadClient implements DownloadClient {
 
     private final HttpClient httpClient;
-
+    private final DownloadRequest request;
     private ExecutorService executor = Executors.newFixedThreadPool(5);
 
-    public HttpDownloadClient() {
+    public HttpDownloadClient(final DownloadRequest request) {
+        this.request = request;
         this.httpClient = HttpClients.createDefault();
     }
-    public HttpDownloadClient(HttpClient httpClient) {
+    public HttpDownloadClient(final DownloadRequest request, final HttpClient httpClient) {
         this.httpClient = httpClient;
+        this.request = request;
     }
 
     private String getAuthHeader(DownloadRequest request){
         return null;
     }
 
-    public File process(DownloadRequest request) throws Exception {
-        RangeInfo rangeInfo = this.checkRangeSupported(request);
+    @Override
+    public File download() throws Exception {
+
+        RangeInfo rangeInfo = this.checkRangeSupported();
         List<Callable<DownloadedChunkInfo>> callableTasks = new ArrayList<>();
         List<Range> rangeList = makeRangeList(request.getChunks(), rangeInfo.getContentLength());
         String authHeader = getAuthHeader(request);
         int index =0;
         for(Range r : rangeList){
-            DownloadCallable callable = new DownloadCallable(this.httpClient, authHeader, URI.create(request.getUrl()),
+            ChunkDownloader callable = new ChunkDownloader(this.httpClient, authHeader, URI.create(request.getUrl()),
                     index++,r);
             callableTasks.add(callable);
         }
@@ -87,13 +91,14 @@ public class HttpDownloadClient implements DownloadClient {
         for (int i = 0; i < chunks-1; ++i){
             rangeList.add(new Range(i* chunkLength, (i+1)* chunkLength -1));
         }
-        rangeList.add(new Range((chunks-1)* chunkLength, (chunks)* chunkLength + contentLength % chunks));
+        rangeList.add(new Range((chunks-1)* chunkLength, (chunks)* chunkLength + contentLength % chunks -1));
         return rangeList;
     }
 
-    public RangeInfo checkRangeSupported(DownloadRequest request) throws Exception {
-        HttpHead headRequest = new HttpHead(request.getUrl());
-        String authHeader = getAuthHeader(request);
+    @Override
+    public RangeInfo checkRangeSupported() throws Exception {
+        HttpHead headRequest = new HttpHead(this.request.getUrl());
+        String authHeader = getAuthHeader(this.request);
         RangeInfo rangeInfo = RangeInfo.builder().supported(false).build();
         if(authHeader != null && authHeader.trim().length() > 0){
             headRequest.setHeader(HttpHeaders.AUTHORIZATION, authHeader);
