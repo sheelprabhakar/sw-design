@@ -1,18 +1,13 @@
 package code4copy.filedownloader.client;
 
-import com.code4copy.filedownloader.DownloadRequest;
-import com.code4copy.filedownloader.client.DownloadCallable;
+import com.code4copy.filedownloader.client.ChunkDownloader;
 import com.code4copy.filedownloader.client.DownloadedChunkInfo;
-import com.code4copy.filedownloader.client.HttpDownloadClient;
 import com.code4copy.filedownloader.client.Range;
+import org.apache.hc.client5.http.ConnectTimeoutException;
 import org.apache.hc.client5.http.classic.HttpClient;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
-import org.apache.hc.client5.http.classic.methods.HttpHead;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
-import org.apache.hc.core5.http.Header;
 import org.apache.hc.core5.http.HttpEntity;
-import org.apache.hc.core5.http.HttpHeaders;
-import org.apache.hc.core5.http.HttpResponse;
 import org.apache.hc.core5.http.HttpStatus;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -27,7 +22,7 @@ import java.nio.file.Files;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
-public class DownloadCallableTest {
+public class ChunkDownloaderTest {
 
     public static final String TEXT = "text";
     private final String FILE_URL = "https://www.code4copy.com/file.jpg";
@@ -56,12 +51,42 @@ public class DownloadCallableTest {
         when(httpEntity.getContentLength()).thenReturn(4l);
         when(httpClient.execute(Mockito.any(HttpGet.class))).thenReturn(httpResponse);
 
-        DownloadCallable downloadCallable = new DownloadCallable(httpClient, null, URI.create( FILE_URL), 0, new Range(0,3));
+        ChunkDownloader downloadCallable = new ChunkDownloader(httpClient, null, URI.create( FILE_URL), 0, new Range(0,3));
         DownloadedChunkInfo downloadedChunkInfo = downloadCallable.call();
         assertTrue(!downloadedChunkInfo.isFailed());
         File f = new File(downloadedChunkInfo.getChunkPath());
         assertTrue(f.exists());
         assertTrue(Files.readString(f.toPath()).equals(TEXT));
+    }
+
+    @Test
+    public void test_call_404() throws Exception {
+
+        when(httpResponse.getCode()).thenReturn(HttpStatus.SC_NOT_FOUND);
+        when(httpResponse.getEntity()).thenReturn(httpEntity);
+        when(httpEntity.getContent()).thenReturn(inputStream);
+        when(httpEntity.getContentLength()).thenReturn(4l);
+        when(httpClient.execute(Mockito.any(HttpGet.class))).thenReturn(httpResponse);
+
+        ChunkDownloader downloadCallable = new ChunkDownloader(httpClient, null, URI.create( FILE_URL), 0, new Range(0,3));
+        DownloadedChunkInfo downloadedChunkInfo = downloadCallable.call();
+        assertTrue(downloadedChunkInfo.isFailed());
+        assertTrue(downloadedChunkInfo.getHttpStatus() == HttpStatus.SC_NOT_FOUND );
+    }
+
+    @Test
+    public void test_call_exception() throws Exception {
+
+        when(httpResponse.getCode()).thenReturn(HttpStatus.SC_NOT_FOUND);
+        when(httpResponse.getEntity()).thenReturn(httpEntity);
+        when(httpEntity.getContent()).thenReturn(inputStream);
+        when(httpEntity.getContentLength()).thenReturn(4l);
+        when(httpClient.execute(Mockito.any(HttpGet.class))).thenThrow(new ConnectTimeoutException("Timeout"));
+
+        ChunkDownloader downloadCallable = new ChunkDownloader(httpClient, null, URI.create( FILE_URL), 0, new Range(0,3));
+        DownloadedChunkInfo downloadedChunkInfo = downloadCallable.call();
+        assertTrue(downloadedChunkInfo.isFailed());
+        assertTrue(downloadedChunkInfo.getErr().equals("Timeout") );
     }
 
 }
