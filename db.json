@@ -1,0 +1,17 @@
+{
+  "message": "Data retrieved successfully",
+  "data": [
+    {
+      "id": "USR001",
+      "label": "John Smith"
+    },
+    {
+      "id": "USR002",
+      "label": "Jane Doe"
+    },
+    {
+      "id": "USR003",
+      "label": "Robert Johnson"
+    }
+  ]
+}
